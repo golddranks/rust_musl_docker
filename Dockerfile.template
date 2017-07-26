@@ -73,9 +73,6 @@ ENV PATH=$PREFIX/bin:/root/.cargo/bin:$PATH \
     SSL_CERT_DIR=/etc/ssl/certs \
     CC=musl-gcc
 
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly && \
-    rustup target add x86_64-unknown-linux-musl
-
 # OpenSSL have their own build system
 RUN curl -sL http://www.openssl.org/source/openssl-1.0.2j.tar.gz | tar xz --strip-components=1 && \
     ./Configure no-shared --prefix=$PREFIX --openssldir=$PREFIX/ssl no-zlib linux-x86_64 && \
@@ -87,3 +84,6 @@ RUN install_make_project () { \
       ./configure --prefix=$PREFIX --host=x86_64-unknown-linux-musl $2 && \
       make && make install && rm -rf * ; } ; \
     install_make_project "https://ftp.postgresql.org/pub/source/v9.6.1/postgresql-9.6.1.tar.gz" "--without-readline --without-zlib"
+
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain TOOLCHAIN && \
+    rustup target add x86_64-unknown-linux-musl
