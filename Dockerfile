@@ -73,10 +73,13 @@ ENV PATH=$PREFIX/bin:/root/.cargo/bin:$PATH \
     SSL_CERT_DIR=/etc/ssl/certs \
     CC=musl-gcc
 
-# MAKE AND INSTALL NATIVE DEPENDENCIES
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly && \
+    rustup target add x86_64-unknown-linux-musl
 
-# All of these libs will be built with the musl prefix so that they won't interfere with the system glibc!
-# musl must be as an .a (for static linking to produce the binary) and as an .so (for dynamic linking for the compiler plugins)
+# OpenSSL have their own build system
+RUN curl -sL http://www.openssl.org/source/openssl-1.0.2j.tar.gz | tar xz --strip-components=1 && \
+    ./Configure no-shared --prefix=$PREFIX --openssldir=$PREFIX/ssl no-zlib linux-x86_64 && \
+    make depend && make -j$(nproc) && make install && rm -rf *
 
 RUN install_make_project () { \
       echo "Installing a library from $1" && \
@@ -84,11 +87,3 @@ RUN install_make_project () { \
       ./configure --prefix=$PREFIX --host=x86_64-unknown-linux-musl $2 && \
       make && make install && rm -rf * ; } ; \
     install_make_project "https://ftp.postgresql.org/pub/source/v9.6.1/postgresql-9.6.1.tar.gz" "--without-readline --without-zlib"
-
-# OpenSSL have their own build system
-RUN curl -sL http://www.openssl.org/source/openssl-1.0.2j.tar.gz | tar xz --strip-components=1 && \
-    ./Configure no-shared --prefix=$PREFIX --openssldir=$PREFIX/ssl no-zlib linux-x86_64 && \
-    make depend && make -j$(nproc) && make install && rm -rf *
-
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly && \
-    rustup target add x86_64-unknown-linux-musl
