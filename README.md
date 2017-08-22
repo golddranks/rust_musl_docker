@@ -1,8 +1,8 @@
 # rust_musl_docker – A docker image with Rust nightly for MUSL target with OpenSSL and Postgres.
 
-This docker image is primarily meant for building statically Rust crates that use Diesel and Rocket libraries.
+This docker image is primarily meant for building statically Rust crates that use **Diesel** and **Rocket** libraries.
 A combination of static linking, native (C) dependencies and crates that use heavily compiler plugins is hard to get to
-compile. This Docker image is meant to help with that. Not only it supports Diesel and Rocket (and many other crates)
+compile. (1) This Docker image is meant to help with that. Not only it supports Diesel and Rocket (and many other crates)
 directly, it also is fully commented to help for possible customisation needs. There exists other similar images too,
 but the lack of comments make them unhelpful if they don't happen to contain the exact things you need.
 
@@ -28,3 +28,5 @@ docker run -it --rm \
     golddranks/rust_musl_docker:nightly-2017-08-21 \
     cargo build --release -vv --target=x86_64-unknown-linux-musl
 ```
+
+(1) This has gotten even harder as of late, with Debian Stretch moving to position-independent-code by default and the Rust compiler enabling RELRO. Fortunately, after a lot of trial and error, the build enviroment works.
