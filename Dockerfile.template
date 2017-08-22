@@ -1,88 +1,153 @@
-FROM debian:jessie
+FROM debian:stretch
 MAINTAINER Pyry Kontio <pyry.kontio@drasa.eu>
 USER root
 
-# NOTES TO MYSELF AND OTHERS TOO, THEY MIGHT BE HELPFUL since this took me too long to figure out.
+# NOTES TO MYSELF AND OTHERS TOO. THEY MIGHT BE HELPFUL,
+# since this took me too long to figure out.
 
-# This image is building my web app project Ganbare, written in Rust. It uses, among others, the Hyper and Diesel libraries.
-# This Dockerfile is structured so that the first part is quite generic, and be easily reused. 
+# This image is for building apps in Rust nightly for musl target.
+# It contains the needed libraries to be able to build Diesel and Rocket.
+# Setting up the build environment isn't actually easy at all – because
+# Diesel and Rocket use code-generating compiler plugins, they plugins
+# must be able to run in the host environment, whereas we want the final build
+# to be a statically linked musl build. So we need to set up the environment
+# doubly and ensure that the libraries are compatible and the correct libraries
+# are selected.
 
-# I build this file with "docker build -f Dockerfile.build -t <username>/<imagename> ."
+# This dockerfile is easy to build with associated build.sh script.
 # While building, it assembles the build environment for compiling static musl binaries.
-# The pain of static compiling is the native dependencies, but but correct configuration, it should be all right. You need to
-# download them, build the sources with appropriate settings (I'm using the prefix /musl), and check from
-# the appropriate Rust crates (usually named something-sys) how they are going to present the linking flags to Cargo.
-# Read the build.rs files.
+# The pain of static compiling is the native dependencies,
+# but with correct configuration, it should be all right.
+# You need to download the C libraries, build the sources with appropriate
+# settings and check from the appropriate Rust crates (usually named something-sys)
+# how they are going to present the linking flags to Cargo.
+# Read the build.rs files of those crates. Usually you need to set some
+# environment variables that affect how the build.rs build scripts work.
 
-# Note: if build.rs doesn't provide options for static linking, forking the crate, and cargo-replacing it,
-# and adding that functionality is a thing. (println!("cargo:rustc-link-lib=static={}", lib);, where lib is the libname
-# as passed to linker [pq, ssl, crypto etc.].) But remember to contribute to upstream too!
-# When run, this image compiles my project from a mounted volume.
+# Note: if build.rs doesn't provide options for static linking
+# and/or cross-compiling forking the crate, and cargo-patching it,
+# and adding that functionality is a thing! It helps everyone.
+# The build.rs scripts provide the linking flags to cargo by printing some
+# instructions like `println!("cargo:rustc-link-lib=static={}", lib);`,
+# where lib is the libname as passed to linker [pq, ssl, crypto etc.].)
+# Remember to contribute to upstream too!
 
-# Some of the *-sys crates are using pkg-config to provide the linker settings. This is good, since it's easily configurable.
+# When run, this image compiles can be used to compile static musl builds,
+# presenting the --target=x86_64-unknown-linux-musl flag to cargo. (-vv) is
+# also recommended for debugging purposes, as static linking and
+# cross-compiling builds break easily in my experience.
+# It is recommended to mount not only the work directory, but also the
+# `~/.cargo/git` and `~/.cargo/registry` directories as it enables better caching.
 
+# Example of using the built container to build Rust executables:
+# (from command line in the project directory)
+#
+# docker run -it --rm \
+#    -v $PWD:/workdir \
+#    -v ~/.cargo/git:/root/.cargo/git \
+#    -v ~/.cargo/registry:/root/.cargo/registry \
+#    golddranks/rust_musl_docker:nightly-2017-08-21 \
+#    cargo build --release -vv --target=x86_64-unknown-linux-musl
 
-ENV PREFIX=/musl
+# Installing packages - WHY THESE PACKAGES?
+# musl itself:
+#   musl-dev, musl-tools
+# optional utilities for debugging inside the container:
+#   file - for inspecting built files (whether they are actually static)
+#   nano - a text editor
+#   git - because basically every Rust project uses it
+#   zlib1g-dev, cmake, libssl-dev - needed for building cargo-tree which helps visualizing the build deps
+#   libssl-dev - needed for dynamically linking (for diesel code generation) the libpq crate
+# needed utilities for downloading, installing and building everything
+# (diesel, rocket and their dependencies, mainly libpq and openssl):
+#   curl, g++, make, pkgconf - these are needed by many libraries
+#   linux-headers-amd64 - needed for building openssl 1.1
+#   ca-certificates - for openssl & curl.
+#   xutils-dev because it contains makedepend with is used by openssl build system
+#   libpq-dev - needed for dynamically linking (for diesel code generation) the libpq crate
 
-# WHY THESE PACKAGES?
-# optional utilities for debugging and stuff: file, nano, git
-# needed utilities for installing and building everything: bzip2, curl, g++, make, pkgconf
-# ca-certificates for openssl & curl. xutils-dev because it contains makedepend with is used by openssl build system
-
-# WHAT THEN?
-# Symlink libsqlite to libsqlite3.so because it's not there by default, for some reason, and it's needed by diesel_cli.
 # Workdir for our code: /workdir. Prefix dir for musl-based libs and includes: /musl
 RUN apt-get update && \
   apt-get install -y \
   musl-dev \
   musl-tools \
-  xutils-dev \
-  make \
-  curl \
-  pkgconf \
-  git \
-  g++ \
-  ca-certificates \
   file \
   nano \
+  git \
+  zlib1g-dev \
+  cmake \
+  make \
+  g++ \
+  curl \
+  pkgconf \
+  linux-headers-amd64 \
+  ca-certificates \
+  xutils-dev \
+  libpq-dev \
+  libssl-dev \ 
   --no-install-recommends && \
-  rm -rf /var/lib/apt/lists/* && \
-  mkdir /workdir && mkdir $PREFIX
+  rm -rf /var/lib/apt/lists/*
 
+# Setting the musl prefix where the statically linked C libs are installed
+# Setting the workdir
+ENV MUSL_PREFIX=/musl
+RUN mkdir /workdir && mkdir $MUSL_PREFIX
 WORKDIR /workdir
 
-# SETTING THE ENV VARS - WHY THESE?
+# OpenSSL 1.1 needs some linux headers to exists. They aren't installed by
+# default to the directory of musl includes, so we must link them.
+RUN ln -s /usr/include/x86_64-linux-gnu/asm /usr/include/x86_64-linux-musl/asm && \
+    ln -s /usr/include/asm-generic /usr/include/x86_64-linux-musl/asm-generic && \
+    ln -s /usr/include/linux /usr/include/x86_64-linux-musl/linux
+
+# Let's download the libraries so we don't have to do this everytime when
+# debugging failing builds.
+RUN curl -sL http://www.openssl.org/source/openssl-1.1.0f.tar.gz | tar xz && \
+    curl -sL https://ftp.postgresql.org/pub/source/v9.6.4/postgresql-9.6.4.tar.gz | tar xz
+
+# OpenSSL needs to be built with no-async because otherwise the build is going
+# to crash with missing symbols. ZLib is disabled because we are too lazy to build
+# a musl-compatible one by ourselves.
+# Note that OpenSSL has their own build system, they don't use autotools.
+# This makes the settings a bit non-standard.
+RUN cd openssl-1.1.0f && \
+    CC="musl-gcc -fPIE -pie" ./Configure no-shared no-async --prefix=$MUSL_PREFIX --openssldir=$MUSL_PREFIX/ssl no-zlib linux-x86_64 && \
+    make depend && make -j$(nproc) && make install
+
+# Note that since Debian Stretch, gcc builds position-independent executables.
+# The compilation will fail without flags "-fPIE" (which is for the compiler)
+# and "-pie" (which is for the linker).
+# Readline and Zlib are disabled, because we are too lazy to build musl-compatible
+# ones by ourselves.
+RUN cd postgresql-9.6.4 && \
+    CC="musl-gcc -fPIE -pie" ./configure --prefix=$MUSL_PREFIX --host=x86_64-unknown-linux-musl --without-readline --without-zlib && \
+    make -j$(nproc) && make install
+
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain TOOLCHAIN
+
+# .cargo/bin in PATH is needed for running cargo, rustup etc.
+ENV PATH=/root/.cargo/bin:$PATH
+
+# A tool for visualizing Rust build dependencies. Handy for debugging the build inside the container.
+RUN cargo install cargo-tree
+
+# Installing the musl target!
+RUN rustup target add x86_64-unknown-linux-musl
+
+# SETTING THE ENV VARS FOR MUSL BUILDS - WHY THESE?
 # PKG_CONFIG_PATH Some of the build.rs script of *-sys crates use pkg-config to probe for libs.
 # PKG_CONFIG_ALLOW_CROSS This tells the rust pkg-config crate to be enabled even when cross-compiling
 # PKG_CONFIG_ALL_STATIC This tells the rust pkg-config crate to statically link the native dependencies
 # The pq-sys crate doesn't use PKG_CONFIG, and we must manually pass PQ_LIB_STATIC for it to link statically.
-# PATH .cargo/bin is needed for running cargo, rustup etc,
 # PATH /musl/bin is needed because the build.rs of pq-sys runs a postgres binary pg_config from there that tells it the lib dir.
-#     (This is just a fallback, though)
-# LD_LIBRARY_PATH is needed for running compiler plugins (they are dynamically linked .so files)
-#     (When target is musl, the compiler plugins are built for musl too, so we need dynamically-linked musl-libc for the plugins)
-ENV PATH=$PREFIX/bin:/root/.cargo/bin:$PATH \
+
+ENV PATH=$MUSL_PREFIX/bin:$PATH \
     PKG_CONFIG_ALLOW_CROSS=true \
     PKG_CONFIG_ALL_STATIC=true \
-    PKG_CONFIG_PATH=$PREFIX/lib/pkgconfig \
-    PQ_LIB_STATIC=true \
+    PKG_CONFIG_PATH=$MUSL_PREFIX/lib/pkgconfig \
+    PQ_LIB_STATIC_X86_64_UNKNOWN_LINUX_MUSL=true \
+    PG_CONFIG_X86_64_UNKNOWN_LINUX_GNU=/usr/bin/pg_config \ 
     OPENSSL_STATIC=true \
-    OPENSSL_DIR=$PREFIX \
+    OPENSSL_DIR=$MUSL_PREFIX \
     SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
     SSL_CERT_DIR=/etc/ssl/certs
-
-# OpenSSL have their own build system
-RUN curl -sL http://www.openssl.org/source/openssl-1.0.2j.tar.gz | tar xz --strip-components=1 && \
-    CC=musl-gcc ./Configure no-shared --prefix=$PREFIX --openssldir=$PREFIX/ssl no-zlib linux-x86_64 && \
-    make depend && make -j$(nproc) && make install && rm -rf *
-
-RUN install_make_project () { \
-    export CC=musl-gcc && \
-    echo "Installing a library from $1" && \
-    curl -sL $1 | tar xz --strip-components=1 && \
-    CC=musl-gcc ./configure --prefix=$PREFIX --host=x86_64-unknown-linux-musl $2 && \
-    make && make install && rm -rf * ; } ; \
-    install_make_project "https://ftp.postgresql.org/pub/source/v9.6.1/postgresql-9.6.1.tar.gz" "--without-readline --without-zlib"
-
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain TOOLCHAIN && \
-    rustup target add x86_64-unknown-linux-musl

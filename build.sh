@@ -5,4 +5,3 @@ build_docker () {
     docker push golddranks/rust_musl_docker:$1
 };
 build_docker "nightly-2017-08-21"
-build_docker "nightly-2017-08-21"
