@@ -39,6 +39,17 @@ USER root
 # It is recommended to mount not only the work directory, but also the
 # `~/.cargo/git` and `~/.cargo/registry` directories as it enables better caching.
 
+# A note about the OpenSSL version: the version is configurable. I tried
+# using 1.1 briefly, but it introduced some problems with its stricter cert checking,
+# so now the build.sh defaults to 1.0.2. This can be easily changed, however, and
+# the build environment fully supports building 1.1.0.
+
+# A note about the distro version: Debian Stretch (9) introduced GCC that defaults to
+# position-independent code. This doesn't go well together with static linking
+# in Rust (as of 2017-08), although it's getting better. That's why this image was
+# reverted to Debian Jessie (8). I will upgrade to Stretch once rustc supports
+# static linking with position-independent static libraries.
+
 # Example of using the built container to build Rust executables:
 # (from command line in the project directory)
 #
@@ -66,7 +77,6 @@ USER root
 #   xutils-dev because it contains makedepend with is used by openssl build system
 #   libpq-dev - needed for dynamically linking (for diesel code generation) the libpq crate
 
-# Workdir for our code: /workdir. Prefix dir for musl-based libs and includes: /musl
 RUN apt-get update && \
   apt-get install -y \
   musl-dev \
