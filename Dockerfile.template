@@ -43,7 +43,7 @@ USER root
 # and statically linked TARGET libraries for linking.
 
 # Note about the OpenSSL version:
-# The version is configurable. I tried using 1.1 briefly,
+# The version is configurable. I tried using 1.1.0 briefly,
 # but it introduced some problems with its stricter cert checking,
 # so now the build.sh defaults to 1.0.2. This can be easily changed, however,
 # and the build environment fully supports building 1.1.0.
@@ -121,7 +121,7 @@ WORKDIR /libworkdir
 
 # OpenSSL 1.1 needs some linux headers to exists. They aren't installed by
 # default to the directory of musl includes, so we must link them.
-# OpenSSL 1.0 doesn't need these, but they don't do any harm.
+# OpenSSL 1.0 doesn't need these, but they won't do any harm.
 RUN ln -s /usr/include/x86_64-linux-gnu/asm /usr/include/x86_64-linux-musl/asm && \
     ln -s /usr/include/asm-generic /usr/include/x86_64-linux-musl/asm-generic && \
     ln -s /usr/include/linux /usr/include/x86_64-linux-musl/linux
@@ -133,7 +133,7 @@ RUN curl -sL http://www.openssl.org/source/OPENSSL_VER.tar.gz | tar xz && \
 
 # Note that since Debian Stretch, gcc builds position-independent executables.
 # The compilation will fail without flags "-fPIE" (which is for the compiler)
-# and "-pie" (which is for the linker).
+# and "-pie" (which is for the linker). (Currently the flags aren't set as we are using Jessie.)
 # OpenSSL needs to be built with no-async because otherwise the build is going
 # to crash with missing symbols. ZLib is disabled because we are too lazy to build
 # a musl-compatible one by ourselves.
@@ -143,7 +143,7 @@ RUN cd OPENSSL_VER && \
     CC="musl-gcc" ./Configure no-shared no-async --prefix=$MUSL_PREFIX --openssldir=$MUSL_PREFIX/ssl no-zlib linux-x86_64 && \
     make depend && make -j$(nproc) && make install
 
-# Again, we use "-fPIE -pie".
+# Again, we use "-fPIE -pie". (Currently the flags aren't set as we are using Jessie.)
 # Readline and Zlib are disabled, because we are too lazy to build musl-compatible
 # ones by ourselves.
 RUN cd postgresql-9.6.4 && \
