@@ -1,4 +1,4 @@
-FROM debian:jessie
+FROM debian:stretch
 MAINTAINER Pyry Kontio <pyry.kontio@drasa.eu>
 USER root
 
@@ -114,14 +114,14 @@ RUN curl -sL http://www.openssl.org/source/OPENSSL_VER.tar.gz | tar xz && \
 # Note that OpenSSL has their own build system, they don't use autotools.
 # This makes the settings a bit non-standard.
 RUN cd OPENSSL_VER && \
-    CC="musl-gcc" ./Configure no-shared no-async --prefix=$MUSL_PREFIX --openssldir=$MUSL_PREFIX/ssl no-zlib linux-x86_64 && \
+    CC="musl-gcc -fPIE -pie" ./Configure no-shared no-async --prefix=$MUSL_PREFIX --openssldir=$MUSL_PREFIX/ssl no-zlib linux-x86_64 && \
     make depend && make -j$(nproc) && make install
 
 # Again, we use "-fPIE -pie".
 # Readline and Zlib are disabled, because we are too lazy to build musl-compatible
 # ones by ourselves.
 RUN cd postgresql-9.6.4 && \
-    CC="musl-gcc" ./configure --prefix=$MUSL_PREFIX --host=x86_64-unknown-linux-musl --without-readline --without-zlib && \
+    CC="musl-gcc -fPIE -pie" ./configure --prefix=$MUSL_PREFIX --host=x86_64-unknown-linux-musl --without-readline --without-zlib && \
     make -j$(nproc) && make install
 
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain RUST_TOOLCHAIN
