@@ -50,10 +50,11 @@ USER root
 
 # Note about the distro version:
 # Debian Stretch (9) introduced GCC that defaults to position-independent code.
-# This doesn't go well together with static linking in Rust (as of 2017-08),
-# although it's getting better. That's why this image was reverted to Debian Jessie (8).
-# I will upgrade to Stretch once rustc supports static linking
-# with position-independent static libraries.
+# The support for linking PIE code statically was added to Rust recently (2017-08-25).
+# Before that it used to link the libraries statically, but still produce
+# a dynamic looking executable (a binary with a reference to the dynamic loader),
+# which partially defeats the purpose.
+# No support is guaranteed for older Rust nightlies than that.
 
 # USAGE:
 # When run, this image compiles can be used to compile static musl builds,
@@ -135,6 +136,7 @@ RUN curl -sL https://zlib.net/zlib-1.2.11.tar.gz | tar xz
 # Note that since Debian Stretch, gcc builds position-independent executables.
 # The compilation will fail without flags "-fPIE" (which is for the compiler)
 # and "-pie" (which is for the linker).
+
 # The LDFLAGS and CFLAGS are set so that it finds the libraries we built earlier
 # with the prefix /musl. (System musl libraries don't a have common prefix,
 # they are found, for example in /usr/lib/x86_64-linux-musl, and includes in
@@ -161,6 +163,7 @@ RUN echo "/musl/lib" >> /etc/ld-musl-x86_64.path
 
 # Again, we use "-fPIE -pie" and set the flags.
 # Readline is disabled, because we are too lazy to build musl-compatible one by ourselves.
+
 RUN cd postgresql-9.6.4 && \
     CC="musl-gcc -fPIE -pie" LDFLAGS="-L/musl/lib/" CFLAGS="-I/musl/include" ./configure --prefix=$MUSL_PREFIX --host=x86_64-unknown-linux-musl --without-readline && \
     make -j$(nproc) && make install
