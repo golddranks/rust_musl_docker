@@ -134,7 +134,7 @@ RUN curl -sL http://www.openssl.org/source/OPENSSL_VER.tar.gz | tar xz && \
 
 # Note that since Debian Stretch, gcc builds position-independent executables.
 # The compilation will fail without flags "-fPIE" (which is for the compiler)
-# and "-pie" (which is for the linker). (Currently the flags aren't set as we are using Jessie.)
+# and "-pie" (which is for the linker).
 # OpenSSL needs to be built with no-async because otherwise the build is going
 # to crash with missing symbols. ZLib is disabled because we are too lazy to build
 # a musl-compatible one by ourselves.
@@ -144,7 +144,7 @@ RUN cd OPENSSL_VER && \
     CC="musl-gcc -fPIE -pie" ./Configure no-shared no-async --prefix=$MUSL_PREFIX --openssldir=$MUSL_PREFIX/ssl no-zlib linux-x86_64 && \
     make depend && make -j$(nproc) && make install
 
-# Again, we use "-fPIE -pie". (Currently the flags aren't set as we are using Jessie.)
+# Again, we use "-fPIE -pie".
 # Readline and Zlib are disabled, because we are too lazy to build musl-compatible
 # ones by ourselves.
 RUN cd postgresql-9.6.4 && \
