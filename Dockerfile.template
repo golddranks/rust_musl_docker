@@ -25,13 +25,37 @@ USER root
 # environment variables that affect how the build.rs build scripts work.
 
 # Note: if build.rs doesn't provide options for static linking
-# and/or cross-compiling forking the crate, and cargo-patching it,
+# and/or cross-compiling, forking the crate, cargo-patching it
 # and adding that functionality is a thing! It helps everyone.
 # The build.rs scripts provide the linking flags to cargo by printing some
 # instructions like `println!("cargo:rustc-link-lib=static={}", lib);`,
 # where lib is the libname as passed to linker [pq, ssl, crypto etc.].)
 # Remember to contribute to upstream too!
 
+# Note about compiler plugins.
+# The compiler plugins run in the HOST environment alongside the compiler,
+# whereas the compiled binary is of the TARGET environment.
+# In this image, HOST is x86_64-unknown-linux-musl
+# and TARGET is x86_64-unknown-linux-gnu.
+# Additionally compiler plugins are dynamically linked.
+# This all means that you need to have installed both
+# dynamically linked HOST libraries for compiler plugins
+# and statically linked TARGET libraries for linking.
+
+# Note about the OpenSSL version:
+# The version is configurable. I tried using 1.1.0 briefly,
+# but it introduced some problems with its stricter cert checking,
+# so now the build.sh defaults to 1.0.2. This can be easily changed, however,
+# and the build environment fully supports building 1.1.0.
+
+# Note about the distro version:
+# Debian Stretch (9) introduced GCC that defaults to position-independent code.
+# This doesn't go well together with static linking in Rust (as of 2017-08),
+# although it's getting better. That's why this image was reverted to Debian Jessie (8).
+# I will upgrade to Stretch once rustc supports static linking
+# with position-independent static libraries.
+
+# USAGE:
 # When run, this image compiles can be used to compile static musl builds,
 # presenting the --target=x86_64-unknown-linux-musl flag to cargo. (-vv) is
 # also recommended for debugging purposes, as static linking and
@@ -48,6 +72,8 @@ USER root
 #    -v ~/.cargo/registry:/root/.cargo/registry \
 #    golddranks/rust_musl_docker:nightly-2017-08-21 \
 #    cargo build --release -vv --target=x86_64-unknown-linux-musl
+
+
 
 # Installing packages - WHY THESE PACKAGES?
 # musl itself:
@@ -66,7 +92,6 @@ USER root
 #   xutils-dev because it contains makedepend with is used by openssl build system
 #   libpq-dev - needed for dynamically linking (for diesel code generation) the libpq crate
 
-# Workdir for our code: /workdir. Prefix dir for musl-based libs and includes: /musl
 RUN apt-get update && \
   apt-get install -y \
   musl-dev \
@@ -89,13 +114,14 @@ RUN apt-get update && \
   rm -rf /var/lib/apt/lists/*
 
 # Setting the musl prefix where the statically linked C libs are installed
-# Setting the workdir
+# Setting the workdir for building the C libs (we will later set another one for the Rust project)
 ENV MUSL_PREFIX=/musl
 RUN mkdir /workdir && mkdir $MUSL_PREFIX
-WORKDIR /workdir
+WORKDIR /libworkdir
 
 # OpenSSL 1.1 needs some linux headers to exists. They aren't installed by
 # default to the directory of musl includes, so we must link them.
+# OpenSSL 1.0 doesn't need these, but they won't do any harm.
 RUN ln -s /usr/include/x86_64-linux-gnu/asm /usr/include/x86_64-linux-musl/asm && \
     ln -s /usr/include/asm-generic /usr/include/x86_64-linux-musl/asm-generic && \
     ln -s /usr/include/linux /usr/include/x86_64-linux-musl/linux
@@ -107,7 +133,7 @@ RUN curl -sL http://www.openssl.org/source/OPENSSL_VER.tar.gz | tar xz && \
 
 # Note that since Debian Stretch, gcc builds position-independent executables.
 # The compilation will fail without flags "-fPIE" (which is for the compiler)
-# and "-pie" (which is for the linker).
+# and "-pie" (which is for the linker). (Currently the flags aren't set as we are using Jessie.)
 # OpenSSL needs to be built with no-async because otherwise the build is going
 # to crash with missing symbols. ZLib is disabled because we are too lazy to build
 # a musl-compatible one by ourselves.
@@ -117,7 +143,7 @@ RUN cd OPENSSL_VER && \
     CC="musl-gcc -fPIE -pie" ./Configure no-shared no-async --prefix=$MUSL_PREFIX --openssldir=$MUSL_PREFIX/ssl no-zlib linux-x86_64 && \
     make depend && make -j$(nproc) && make install
 
-# Again, we use "-fPIE -pie".
+# Again, we use "-fPIE -pie". (Currently the flags aren't set as we are using Jessie.)
 # Readline and Zlib are disabled, because we are too lazy to build musl-compatible
 # ones by ourselves.
 RUN cd postgresql-9.6.4 && \
@@ -152,3 +178,5 @@ ENV PATH=$MUSL_PREFIX/bin:$PATH \
     OPENSSL_DIR=$MUSL_PREFIX \
     SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
     SSL_CERT_DIR=/etc/ssl/certs
+    
+WORKDIR /workdir
