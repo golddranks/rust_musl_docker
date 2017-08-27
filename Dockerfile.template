@@ -128,26 +128,41 @@ RUN ln -s /usr/include/x86_64-linux-gnu/asm /usr/include/x86_64-linux-musl/asm &
 
 # Let's download the libraries so we don't have to do this everytime when
 # debugging failing builds.
-RUN curl -sL http://www.openssl.org/source/OPENSSL_VER.tar.gz | tar xz && \
-    curl -sL https://ftp.postgresql.org/pub/source/v9.6.4/postgresql-9.6.4.tar.gz | tar xz
+RUN curl -sL http://www.openssl.org/source/OPENSSL_VER.tar.gz | tar xz
+RUN curl -sL https://ftp.postgresql.org/pub/source/v9.6.4/postgresql-9.6.4.tar.gz | tar xz
+RUN curl -sL https://zlib.net/zlib-1.2.11.tar.gz | tar xz
 
 # Note that since Debian Stretch, gcc builds position-independent executables.
 # The compilation will fail without flags "-fPIE" (which is for the compiler)
-# and "-pie" (which is for the linker). (Currently the flags aren't set as we are using Jessie.)
+# and "-pie" (which is for the linker).
+# The LDFLAGS and CFLAGS are set so that it finds the libraries we built earlier
+# with the prefix /musl. (System musl libraries don't a have common prefix,
+# they are found, for example in /usr/lib/x86_64-linux-musl, and includes in
+# /usr/include/x86_64-linux-musl) This allows the libraries we build later
+# to find the libraries we've built earlier. zlib doesn't depend on anything,
+# but we'll set the flags for every one for consistency.
+RUN cd zlib-1.2.11 && \
+    CC="musl-gcc -fPIE -pie" LDFLAGS="-L/musl/lib/" CFLAGS="-I/musl/include" ./configure --prefix=$MUSL_PREFIX && \
+    make -j$(nproc) && make install
+
 # OpenSSL needs to be built with no-async because otherwise the build is going
-# to crash with missing symbols. ZLib is disabled because we are too lazy to build
-# a musl-compatible one by ourselves.
+# to crash with missing symbols. (Apparently it uses some stuff that musl doesn't have by default.)
 # Note that OpenSSL has their own build system, they don't use autotools.
 # This makes the settings a bit non-standard.
+# Again, we use "-fPIE -pie" and set the flags.
 RUN cd OPENSSL_VER && \
-    CC="musl-gcc -fPIE -pie" ./Configure no-shared no-async --prefix=$MUSL_PREFIX --openssldir=$MUSL_PREFIX/ssl no-zlib linux-x86_64 && \
+    CC="musl-gcc -fPIE -pie" LDFLAGS="-L/musl/lib/" CFLAGS="-I/musl/include" ./Configure no-shared no-async --prefix=$MUSL_PREFIX --openssldir=$MUSL_PREFIX/ssl linux-x86_64 && \
     make depend && make -j$(nproc) && make install
 
-# Again, we use "-fPIE -pie". (Currently the flags aren't set as we are using Jessie.)
-# Readline and Zlib are disabled, because we are too lazy to build musl-compatible
-# ones by ourselves.
+# Adding out library path to /etc/ld-musl-x86_64.path allows the dynamic linker
+# to find musl libraries built by us. The configure script of postgres will
+# fail without this, since it tests dynamic linking even if ne don't need it.
+RUN echo "/musl/lib" >> /etc/ld-musl-x86_64.path
+
+# Again, we use "-fPIE -pie" and set the flags.
+# Readline is disabled, because we are too lazy to build musl-compatible one by ourselves.
 RUN cd postgresql-9.6.4 && \
-    CC="musl-gcc -fPIE -pie" ./configure --prefix=$MUSL_PREFIX --host=x86_64-unknown-linux-musl --without-readline --without-zlib && \
+    CC="musl-gcc -fPIE -pie" LDFLAGS="-L/musl/lib/" CFLAGS="-I/musl/include" ./configure --prefix=$MUSL_PREFIX --host=x86_64-unknown-linux-musl --without-readline && \
     make -j$(nproc) && make install
 
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain RUST_TOOLCHAIN
@@ -177,6 +192,7 @@ ENV PATH=$MUSL_PREFIX/bin:$PATH \
     OPENSSL_STATIC=true \
     OPENSSL_DIR=$MUSL_PREFIX \
     SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
-    SSL_CERT_DIR=/etc/ssl/certs
+    SSL_CERT_DIR=/etc/ssl/certs \
+    LIBZ_SYS_STATIC=1
     
 WORKDIR /workdir
