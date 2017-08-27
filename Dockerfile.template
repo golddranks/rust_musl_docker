@@ -50,10 +50,11 @@ USER root
 
 # Note about the distro version:
 # Debian Stretch (9) introduced GCC that defaults to position-independent code.
-# This doesn't go well together with static linking in Rust (as of 2017-08),
-# although it's getting better. That's why this image was reverted to Debian Jessie (8).
-# I will upgrade to Stretch once rustc supports static linking
-# with position-independent static libraries.
+# The support for linking PIE code statically was added to Rust recently (2017-08-25).
+# Before that it used to link the libraries statically, but still produce
+# a dynamic looking executable (a binary with a reference to the dynamic loader),
+# which partially defeats the purpose.
+# No support is guaranteed for older Rust nightlies than that.
 
 # USAGE:
 # When run, this image compiles can be used to compile static musl builds,
