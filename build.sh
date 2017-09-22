@@ -6,4 +6,4 @@ build_docker () {
     docker build -t "$1":"$2" .
     docker push "$1":"$2"
 };
-build_docker "golddranks/rust_musl_docker" "nightly-2017-08-27" "openssl-1.0.2l"
+build_docker "golddranks/rust_musl_docker" "nightly-2017-09-19" "openssl-1.0.2l"
