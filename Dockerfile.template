@@ -111,6 +111,7 @@ RUN apt-get update && \
   xutils-dev \
   libpq-dev \
   libssl-dev \ 
+  python3 \
   --no-install-recommends && \
   rm -rf /var/lib/apt/lists/*
 
