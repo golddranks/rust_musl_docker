@@ -1,4 +1,4 @@
-# rust_musl_docker – A container for building Rust crates for MUSL target. Supports dependencies for OpenSSL and Postgres.
+# rust_musl_docker – A well-documented container for building Rust crates for MUSL target. Supports dependencies for OpenSSL and Postgres.
 
 This docker image is primarily meant for building statically Rust crates that use **Diesel** and **Rocket** libraries.
 A combination of static linking, native (C) dependencies and crates that use heavily compiler plugins is hard to get to
