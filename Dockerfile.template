@@ -129,8 +129,8 @@ RUN ln -s /usr/include/x86_64-linux-gnu/asm /usr/include/x86_64-linux-musl/asm &
 
 # Let's download the libraries so we don't have to do this everytime when
 # debugging failing builds.
-RUN curl -sL http://www.openssl.org/source/OPENSSL_VER.tar.gz | tar xz
-RUN curl -sL https://ftp.postgresql.org/pub/source/v9.6.8/postgresql-9.6.8.tar.gz | tar xz
+RUN curl -sL http://www.openssl.org/source/openssl-OPENSSL_VER.tar.gz | tar xz
+RUN curl -sL https://ftp.postgresql.org/pub/source/vPOSTGRES_VER/postgresql-POSTGRES_VER.tar.gz | tar xz
 RUN curl -sL https://zlib.net/zlib-1.2.11.tar.gz | tar xz
 
 # Note that since Debian Stretch, gcc builds position-independent executables.
@@ -152,7 +152,7 @@ RUN cd zlib-1.2.11 && \
 # Note that OpenSSL has their own build system, they don't use autotools.
 # This makes the settings a bit non-standard.
 # Again, we use "-fPIE -pie" and set the flags.
-RUN cd OPENSSL_VER && \
+RUN cd openssl-OPENSSL_VER && \
     CC="musl-gcc -fPIE -pie" LDFLAGS="-L/musl/lib/" CFLAGS="-I/musl/include" ./Configure no-shared no-async --prefix=$MUSL_PREFIX --openssldir=$MUSL_PREFIX/ssl linux-x86_64 && \
     make depend && make -j$(nproc) && make install
 
@@ -164,7 +164,7 @@ RUN echo "/musl/lib" >> /etc/ld-musl-x86_64.path
 # Again, we use "-fPIE -pie" and set the flags.
 # Readline is disabled, because we are too lazy to build musl-compatible one by ourselves.
 
-RUN cd postgresql-9.6.8 && \
+RUN cd postgresql-POSTGRES_VER && \
     CC="musl-gcc -fPIE -pie" LDFLAGS="-L/musl/lib/" CFLAGS="-I/musl/include" ./configure --prefix=$MUSL_PREFIX --host=x86_64-unknown-linux-musl --without-readline && \
     make -j$(nproc) && make install
 
