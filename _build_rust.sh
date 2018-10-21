@@ -18,8 +18,8 @@ BASE_REPO="golddranks/rust_musl_docker_base"
 BASE_TAG="openssl-${OPENSSL_VER}_postgres-${POSTGRES_VER}"
 
 cat RustDockerfile.template | \
-sed "s/BASE_IMAGE/$BASE_REPO:$BASE_TAG/g" | \
-sed "s/RUST_TOOLCHAIN/$RUST_VER/g" > "$TEMP_DOCKERFILE"
+sed "s@BASE_IMAGE@$BASE_REPO:$BASE_TAG@g" | \
+sed "s@RUST_TOOLCHAIN@$RUST_VER@g" > "$TEMP_DOCKERFILE"
 
 docker build -f "$TEMP_DOCKERFILE" -t "$REPO":"$TAG" .
 rm "$TEMP_DOCKERFILE"
