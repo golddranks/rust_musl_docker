@@ -16,8 +16,8 @@ TEMP_DOCKERFILE="BaseDockerfile.$(date '+%s').tmp"
 REPO="golddranks/rust_musl_docker_base"
 TAG="openssl-${OPENSSL_VER}_postgres-${POSTGRES_VER}"
 
-cat BaseDockerfile.template |
-sed "s/OPENSSL_VER/$OPENSSL_VER/g" |\
+cat BaseDockerfile.template | \
+sed "s/OPENSSL_VER/$OPENSSL_VER/g" | \
 sed "s/POSTGRES_VER/$POSTGRES_VER/g" > "$TEMP_DOCKERFILE"
 
 docker build -f "$TEMP_DOCKERFILE" -t "$REPO":"$TAG" .
