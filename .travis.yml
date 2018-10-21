@@ -7,4 +7,4 @@ language:
   - rust
 
 script:
-- ./build_nightly.sh
+- ./build_manual.sh
