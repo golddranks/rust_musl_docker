@@ -11,7 +11,7 @@ TAG="$4"
 
 # available postgresql versions: "9.6.10", "10.5" and "11.0"
 
-TEMP_DOCKERFILE="RustDockerfile.$(date -j '+%s').tmp"
+TEMP_DOCKERFILE="RustDockerfile.$(date '+%s').tmp"
 REPO="golddranks/rust_musl_docker"
 
 BASE_REPO="golddranks/rust_musl_docker_base"

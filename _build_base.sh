@@ -12,7 +12,7 @@ POSTGRES_VER="$2"
 
 # available postgresql versions: "9.6.10", "10.5" and "11.0"
 
-TEMP_DOCKERFILE="BaseDockerfile.$(date -j '+%s').tmp"
+TEMP_DOCKERFILE="BaseDockerfile.$(date '+%s').tmp"
 REPO="golddranks/rust_musl_docker_base"
 TAG="openssl-${OPENSSL_VER}_postgres-${POSTGRES_VER}"
 

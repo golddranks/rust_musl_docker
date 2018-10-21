@@ -3,8 +3,5 @@ sudo: required
 services:
   - docker
 
-language:
-  - rust
-
 script:
 - ./build_manual.sh
