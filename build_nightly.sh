@@ -1,6 +1,6 @@
 #!/bin/sh -xe
 
-source build.sh
+source ./build.sh
 
 
 # nightly with older version of libraries
