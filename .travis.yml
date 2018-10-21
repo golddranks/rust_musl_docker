@@ -4,7 +4,7 @@ services:
   - docker
 
 language:
-  -
+  - rust
 
 script:
 - ./build_nightly.sh

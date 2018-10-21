@@ -11,8 +11,6 @@
 
 # available postgresql versions: "9.6.10", "10.5" and "11.0"
 
-NIGHTLY_DATE=$(date -u '+%Y-%m-%d')
-
 cat Dockerfile.template |
 sed "s/RUST_TOOLCHAIN/$2/g" |\
 sed "s/OPENSSL_VER/$3/g" |\
