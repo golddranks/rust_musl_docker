@@ -13,11 +13,9 @@
 
 NIGHTLY_DATE=$(date -u '+%Y-%m-%d')
 
-build_docker () {
-    cat Dockerfile.template |
-    sed "s/RUST_TOOLCHAIN/$2/g" |\
-    sed "s/OPENSSL_VER/$3/g" |\
-    sed "s/POSTGRES_VER/$4/g" > Dockerfile
-    docker build -t "$1":"$5" .
-    docker push "$1":"$5"
-};
+cat Dockerfile.template |
+sed "s/RUST_TOOLCHAIN/$2/g" |\
+sed "s/OPENSSL_VER/$3/g" |\
+sed "s/POSTGRES_VER/$4/g" > Dockerfile
+docker build -t "$1":"$5" .
+docker push "$1":"$5"
