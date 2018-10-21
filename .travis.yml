@@ -4,4 +4,4 @@ services:
   - docker
 
 script:
-- ./build_manual.sh
+- ./build_nightly.sh
