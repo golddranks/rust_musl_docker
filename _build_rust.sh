@@ -23,4 +23,5 @@ sed "s@RUST_TOOLCHAIN@$RUST_VER@g" > "$TEMP_DOCKERFILE"
 
 docker build -f "$TEMP_DOCKERFILE" -t "$REPO":"$TAG" .
 rm "$TEMP_DOCKERFILE"
+docker login -u gitlab-ci-token -p $CI_BUILD_TOKEN 
 docker push "$REPO":"$TAG"
