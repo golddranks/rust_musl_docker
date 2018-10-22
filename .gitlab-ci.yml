@@ -1,0 +1,4 @@
+build_base:
+  stage: build
+  script:
+    - ./build_manual.sh
